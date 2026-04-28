@@ -45,22 +45,43 @@ def make_backup(base_pdf):
 
 
 def prepend_pdfs(base_pdf, insert_pdfs):
-    cleanup_old_backups(base_pdf)
-    backup_path = make_backup(base_pdf)
+    try:
+        cleanup_old_backups(base_pdf)
+        backup_path = make_backup(base_pdf)
 
-    writer = PdfWriter()
+        writer = PdfWriter()
 
-    for pdf in insert_pdfs:
-        writer.append(pdf, import_outline=True)
+        for pdf in insert_pdfs:
+            if not os.path.exists(pdf):
+                raise FileNotFoundError(f"Insert PDF not found: {pdf}")
+            writer.append(pdf, import_outline=True)
 
-    writer.append(base_pdf, import_outline=True)
+        if not os.path.exists(base_pdf):
+            raise FileNotFoundError(f"Base PDF not found: {base_pdf}")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        temp_path = tmp.name
+        writer.append(base_pdf, import_outline=True)
 
-    with open(temp_path, "wb") as f:
-        writer.write(f)
+        base_dir = os.path.dirname(base_pdf)
 
-    os.replace(temp_path, base_pdf)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=base_dir) as tmp:
+            temp_path = tmp.name
 
-    return backup_path
+        with open(temp_path, "wb") as f:
+            writer.write(f)
+
+        writer.close()
+
+        # Windows에서 PDF 열려 있으면 여기서 실패 가능성 큼
+        os.replace(temp_path, base_pdf)
+
+        return backup_path
+
+    except Exception as e:
+        log_path = os.path.join(
+            os.path.dirname(base_pdf) if base_pdf else os.getcwd(),
+            "prepend_pdf_error.log"
+        )
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write(str(e))
+
+        raise
