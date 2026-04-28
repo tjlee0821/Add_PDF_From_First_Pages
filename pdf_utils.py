@@ -2,7 +2,30 @@ import os
 import shutil
 import tempfile
 from datetime import datetime, timedelta
+from PIL import Image
 from pypdf import PdfWriter
+
+
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+
+
+def image_to_temp_pdf(image_path, temp_dir):
+    img = Image.open(image_path)
+
+    if img.mode in ("RGBA", "P", "LA"):
+        img = img.convert("RGB")
+
+    temp_pdf = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".pdf",
+        dir=temp_dir
+    )
+    temp_pdf.close()
+
+    img.save(temp_pdf.name, "PDF")
+    img.close()
+
+    return temp_pdf.name
 
 
 def cleanup_old_backups(base_pdf, days=90):
@@ -10,8 +33,7 @@ def cleanup_old_backups(base_pdf, days=90):
     base_stem = os.path.splitext(os.path.basename(base_pdf))[0]
     tmp_dir = os.path.join(base_dir, "tmp")
 
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
+    os.makedirs(tmp_dir, exist_ok=True)
 
     cutoff = datetime.now() - timedelta(days=days)
 
@@ -33,8 +55,7 @@ def make_backup(base_pdf):
     base_stem = os.path.splitext(os.path.basename(base_pdf))[0]
     tmp_dir = os.path.join(base_dir, "tmp")
 
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
+    os.makedirs(tmp_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_name = f"{base_stem}_backup_{timestamp}.pdf"
@@ -44,24 +65,47 @@ def make_backup(base_pdf):
     return backup_path
 
 
-def prepend_pdfs(base_pdf, insert_pdfs):
+def normalize_to_pdf(file_path, temp_dir):
+    ext = os.path.splitext(file_path)[1].lower()
+
+    if ext == ".pdf":
+        return file_path, False
+
+    if ext in IMAGE_EXTS:
+        converted_pdf = image_to_temp_pdf(file_path, temp_dir)
+        return converted_pdf, True
+
+    raise ValueError(f"Unsupported file type: {file_path}")
+
+
+def prepend_pdfs(base_pdf, insert_files):
+    temp_converted_files = []
+    temp_path = None
+    writer = None
+
     try:
+        if not os.path.exists(base_pdf):
+            raise FileNotFoundError(f"Base PDF not found: {base_pdf}")
+
+        base_dir = os.path.dirname(base_pdf)
+
         cleanup_old_backups(base_pdf)
         backup_path = make_backup(base_pdf)
 
         writer = PdfWriter()
 
-        for pdf in insert_pdfs:
-            if not os.path.exists(pdf):
-                raise FileNotFoundError(f"Insert PDF not found: {pdf}")
-            writer.append(pdf, import_outline=True)
+        for file_path in insert_files:
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Insert file not found: {file_path}")
 
-        if not os.path.exists(base_pdf):
-            raise FileNotFoundError(f"Base PDF not found: {base_pdf}")
+            pdf_path, is_temp = normalize_to_pdf(file_path, base_dir)
+
+            if is_temp:
+                temp_converted_files.append(pdf_path)
+
+            writer.append(pdf_path, import_outline=True)
 
         writer.append(base_pdf, import_outline=True)
-
-        base_dir = os.path.dirname(base_pdf)
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=base_dir) as tmp:
             temp_path = tmp.name
@@ -70,8 +114,8 @@ def prepend_pdfs(base_pdf, insert_pdfs):
             writer.write(f)
 
         writer.close()
+        writer = None
 
-        # Windows에서 PDF 열려 있으면 여기서 실패 가능성 큼
         os.replace(temp_path, base_pdf)
 
         return backup_path
@@ -81,7 +125,28 @@ def prepend_pdfs(base_pdf, insert_pdfs):
             os.path.dirname(base_pdf) if base_pdf else os.getcwd(),
             "prepend_pdf_error.log"
         )
+
         with open(log_path, "w", encoding="utf-8") as f:
             f.write(str(e))
 
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
         raise
+
+    finally:
+        if writer:
+            try:
+                writer.close()
+            except Exception:
+                pass
+
+        for temp_file in temp_converted_files:
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except Exception:
+                    pass
