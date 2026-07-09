@@ -15,6 +15,17 @@ def image_to_temp_pdf(image_path, temp_dir):
     if img.mode in ("RGBA", "P", "LA"):
         img = img.convert("RGB")
 
+    # A4 size at 300 DPI
+    page_w, page_h = 2550, 3300
+
+    img.thumbnail((page_w, page_h), Image.LANCZOS)
+
+    page = Image.new("RGB", (page_w, page_h), "white")
+
+    x = (page_w - img.width) // 2
+    y = (page_h - img.height) // 2
+    page.paste(img, (x, y))
+
     temp_pdf = tempfile.NamedTemporaryFile(
         delete=False,
         suffix=".pdf",
@@ -22,8 +33,10 @@ def image_to_temp_pdf(image_path, temp_dir):
     )
     temp_pdf.close()
 
-    img.save(temp_pdf.name, "PDF")
+    page.save(temp_pdf.name, "PDF", resolution=300.0)
+
     img.close()
+    page.close()
 
     return temp_pdf.name
 

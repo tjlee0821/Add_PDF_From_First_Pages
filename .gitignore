@@ -6,3 +6,9 @@ __pycache__/
 .DS_Store
 dist/
 build/
+venv/
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc
