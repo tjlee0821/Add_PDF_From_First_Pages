@@ -5,9 +5,8 @@ from datetime import datetime
 import tkinter as tk
 import tkinter.messagebox as messagebox
 from tkinterdnd2 import DND_FILES
-from PIL import Image
 
-from pdf_utils import prepend_pdfs, cleanup_old_backups
+from pdf_utils import prepend_pdfs, cleanup_old_backups, image_to_pdf_page
 from image_utils import files_to_pdf_list, cleanup_temp_files, is_image_file
 
 
@@ -36,13 +35,7 @@ def image_to_base_pdf(image_path):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_pdf = os.path.join(base_dir, f"{base_stem}_base_{timestamp}.pdf")
 
-    img = Image.open(image_path)
-
-    if img.mode in ("RGBA", "P", "LA"):
-        img = img.convert("RGB")
-
-    img.save(output_pdf, "PDF")
-    img.close()
+    image_to_pdf_page(image_path, output_pdf)
 
     return output_pdf
 
