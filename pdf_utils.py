@@ -3,7 +3,8 @@ import shutil
 import tempfile
 from collections import Counter
 from datetime import datetime, timedelta
-from PIL import Image, ImageOps
+from PIL import Image
+from image_processing import normalize_image_orientation
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
@@ -58,10 +59,7 @@ def _target_page_width(base_pdf, insert_files):
 def image_to_pdf_page(image_path, output_path, target_width=DEFAULT_PAGE_WIDTH, margin=DEFAULT_MARGIN,
                       rotate_landscape=False):
     image = Image.open(image_path)
-    image = ImageOps.exif_transpose(image)
-
-    if rotate_landscape and image.width > image.height:
-        image = image.rotate(90, expand=True)
+    image = normalize_image_orientation(image, rotate_landscape)
 
     if image.mode not in ("RGB", "L"):
         image = image.convert("RGB")

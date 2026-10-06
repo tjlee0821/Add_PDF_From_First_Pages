@@ -1,24 +1,9 @@
 import os
 import tempfile
-from PIL import Image, ImageOps
+from PIL import Image
+from image_processing import SUPPORTED_IMAGE_EXTENSIONS, is_image_file, normalize_image_orientation
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-
-
-SUPPORTED_IMAGE_EXTENSIONS = {
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".bmp",
-    ".tif",
-    ".tiff",
-    ".webp",
-}
-
-
-def is_image_file(file_path: str) -> bool:
-    ext = os.path.splitext(file_path)[1].lower()
-    return ext in SUPPORTED_IMAGE_EXTENSIONS
 
 
 def image_to_pdf(
@@ -47,17 +32,12 @@ def image_to_pdf(
     page_width, page_height = page_size
 
     image = Image.open(image_path)
-    image = ImageOps.exif_transpose(image)
+    image = normalize_image_orientation(image, rotate_landscape)
 
     if image.mode not in ("RGB", "L"):
         image = image.convert("RGB")
 
     img_width, img_height = image.size
-
-    # EXIF 보정 후, 선택한 경우에만 landscape 이미지를 왼쪽으로 90도 회전
-    if rotate_landscape and img_width > img_height:
-        image = image.rotate(90, expand=True)
-        img_width, img_height = image.size
 
     max_width = page_width - (margin * 2)
     max_height = page_height - (margin * 2)

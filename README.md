@@ -53,3 +53,38 @@ Run the focused regression suite with:
 ```sh
 python3 -m unittest discover -s tests -v
 ```
+
+## Stitch Images mode
+
+Select **Stitch Images** in the Mode dropdown, then drop a batch of image files
+together in the desired order. Choose a PNG destination in the save dialog.
+Each drop creates one image; files are not accumulated across separate drops or
+sorted by filename. Switching back to **Add to existing PDF** restores the
+selected base PDF. PDF mode remains the default and keeps its existing workflow.
+
+Runtime path: `App.on_drop` → `App.stitch_dropped_images` →
+`image_stitcher.stitch_images`. This path uses Pillow pixel operations only,
+rejects PDFs, and does not create, read, merge, or render any PDF.
+
+`image_processing.normalize_image_orientation` is shared by stitching and both
+existing PDF image converters: apply `ImageOps.exif_transpose` first, then
+optionally rotate landscape images 90° counterclockwise. Determine the widest
+image after orientation and resize narrower images proportionally with Lanczos
+resampling. Heights are rounded to the nearest pixel (minimum one pixel). Paste
+vertically with no gap, preserving transparency in an RGBA PNG.
+
+Before pixel decoding or final-canvas allocation, header/EXIF metadata determines
+output dimensions. A conservative estimate includes the RGBA canvas, one input's
+decoding/orientation buffers, conversion/resizing buffers, and encoder slack.
+Requests above 512 MiB estimated working memory or Pillow's normal pixel safety
+threshold are rejected with a message; inputs are never silently downscaled to
+fit. Pillow's decompression safeguards remain enabled. This is a fixed safety
+budget, not a guarantee of available system memory; allocation failures also
+produce a clear error.
+
+JPEG, PNG, BMP, TIFF, and WEBP inputs are supported. Only the first frame of
+multi-frame/animated inputs is used. This version supports vertical stitching and
+PNG output only. Processing is synchronous, so large accepted batches can briefly
+occupy the GUI. Source paths (including aliases) cannot be output destinations.
+Saving uses a temporary PNG beside the destination followed by atomic replacement;
+the temporary file is removed on failure and an existing output stays intact.

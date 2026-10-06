@@ -124,8 +124,11 @@ class RotationTests(unittest.TestCase):
     def test_gui_checkbox_default_and_value_at_each_drop(self):
         root = Mock()
         with patch.object(gui.tk, 'Label'), patch.object(gui.tk, 'BooleanVar') as variable, \
-             patch.object(gui.tk, 'Checkbutton') as checkbox:
+             patch.object(gui.tk, 'Checkbutton') as checkbox, patch.object(gui.tk, 'Frame'), \
+             patch.object(gui.tk, 'OptionMenu'), patch.object(gui.tk, 'StringVar') as mode:
+            mode.return_value.get.return_value = gui.PDF_MODE
             app = gui.App(root)
+            mode.assert_called_once_with(master=root, value=gui.PDF_MODE)
             variable.assert_called_once_with(master=root, value=False)
             self.assertEqual(checkbox.call_args.kwargs['text'], 'Rotate landscape images 90°')
         app.base_pdf = 'base.pdf'
@@ -144,6 +147,8 @@ class RotationTests(unittest.TestCase):
         app.root = Mock()
         app.root.tk.splitlist.return_value = ['base.png']
         app.base_pdf = None
+        app.mode = Mock()
+        app.mode.get.return_value = gui.PDF_MODE
         app.status = Mock()
         app.rotate_landscape = Mock()
         app.rotate_landscape.get.return_value = True
