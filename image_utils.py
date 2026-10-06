@@ -25,12 +25,13 @@ def image_to_pdf(
     image_path: str,
     page_size=letter,
     margin: float = 36,
+    rotate_landscape: bool = False,
 ) -> str:
     """
     이미지 파일을 Letter portrait PDF 한 장으로 변환합니다.
 
     규칙:
-    - landscape 이미지는 왼쪽으로 90도 회전
+    - rotate_landscape=True이면 EXIF 보정 후 landscape 이미지를 왼쪽으로 90도 회전
     - portrait 기준 페이지에 삽입
     - 이미지가 페이지보다 크면 비율 유지해서 축소
     - 가운데 정렬
@@ -53,8 +54,8 @@ def image_to_pdf(
 
     img_width, img_height = image.size
 
-    # landscape 이미지면 왼쪽으로 90도 회전
-    if img_width > img_height:
+    # EXIF 보정 후, 선택한 경우에만 landscape 이미지를 왼쪽으로 90도 회전
+    if rotate_landscape and img_width > img_height:
         image = image.rotate(90, expand=True)
         img_width, img_height = image.size
 
@@ -99,7 +100,7 @@ def image_to_pdf(
             os.remove(temp_img_path)
 
 
-def files_to_pdf_list(file_paths):
+def files_to_pdf_list(file_paths, rotate_landscape=False):
     """
     PDF + 이미지가 섞여 들어왔을 때,
     PDF는 그대로 두고 이미지는 임시 PDF로 변환해서 리스트로 반환합니다.
@@ -119,7 +120,7 @@ def files_to_pdf_list(file_paths):
             pdf_paths.append(path)
 
         elif is_image_file(path):
-            temp_pdf = image_to_pdf(path)
+            temp_pdf = image_to_pdf(path, rotate_landscape=rotate_landscape)
             pdf_paths.append(temp_pdf)
             temp_files.append(temp_pdf)
 

@@ -28,14 +28,14 @@ def is_allowed_file(path):
     return path.lower().endswith(ALLOWED_EXTS)
 
 
-def image_to_base_pdf(image_path):
+def image_to_base_pdf(image_path, rotate_landscape=False):
     base_dir = os.path.dirname(image_path)
     base_stem = os.path.splitext(os.path.basename(image_path))[0]
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_pdf = os.path.join(base_dir, f"{base_stem}_base_{timestamp}.pdf")
 
-    image_to_pdf_page(image_path, output_pdf)
+    image_to_pdf_page(image_path, output_pdf, rotate_landscape=rotate_landscape)
 
     return output_pdf
 
@@ -62,6 +62,14 @@ class App:
         )
         self.label.pack(expand=True, fill="both", padx=20, pady=20)
 
+        self.rotate_landscape = tk.BooleanVar(master=root, value=False)
+        self.rotate_checkbox = tk.Checkbutton(
+            root,
+            text="Rotate landscape images 90°",
+            variable=self.rotate_landscape,
+        )
+        self.rotate_checkbox.pack(pady=5)
+
         self.status = tk.Label(
             root,
             text="기준 파일: 없음",
@@ -79,6 +87,7 @@ class App:
         if not files:
             return
 
+        rotate_landscape = self.rotate_landscape.get()
         temp_files = []
 
         try:
@@ -96,7 +105,7 @@ class App:
                     self.base_pdf = first_file
 
                 elif is_image_file(first_file):
-                    self.base_pdf = image_to_base_pdf(first_file)
+                    self.base_pdf = image_to_base_pdf(first_file, rotate_landscape=rotate_landscape)
                     messagebox.showinfo(
                         "기준 파일 변환 완료",
                         f"이미지를 기준 PDF로 변환했습니다.\n\n{os.path.basename(self.base_pdf)}"
@@ -120,10 +129,10 @@ class App:
                 if not remaining_files:
                     return
 
-                pdfs, temp_files = files_to_pdf_list(remaining_files)
+                pdfs, temp_files = files_to_pdf_list(remaining_files, rotate_landscape=rotate_landscape)
 
             else:
-                pdfs, temp_files = files_to_pdf_list(files)
+                pdfs, temp_files = files_to_pdf_list(files, rotate_landscape=rotate_landscape)
 
             if not pdfs:
                 messagebox.showwarning(
@@ -132,7 +141,7 @@ class App:
                 )
                 return
 
-            prepend_pdfs(self.base_pdf, pdfs)
+            prepend_pdfs(self.base_pdf, pdfs, rotate_landscape=rotate_landscape)
 
             messagebox.showinfo(
                 "완료",

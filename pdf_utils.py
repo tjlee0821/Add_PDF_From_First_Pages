@@ -55,9 +55,13 @@ def _target_page_width(base_pdf, insert_files):
     return min(candidates, key=lambda width: (abs(width - median_width), width))
 
 
-def image_to_pdf_page(image_path, output_path, target_width=DEFAULT_PAGE_WIDTH, margin=DEFAULT_MARGIN):
+def image_to_pdf_page(image_path, output_path, target_width=DEFAULT_PAGE_WIDTH, margin=DEFAULT_MARGIN,
+                      rotate_landscape=False):
     image = Image.open(image_path)
     image = ImageOps.exif_transpose(image)
+
+    if rotate_landscape and image.width > image.height:
+        image = image.rotate(90, expand=True)
 
     if image.mode not in ("RGB", "L"):
         image = image.convert("RGB")
@@ -85,7 +89,7 @@ def image_to_pdf_page(image_path, output_path, target_width=DEFAULT_PAGE_WIDTH, 
     image.close()
 
 
-def image_to_temp_pdf(image_path, temp_dir, target_width=DEFAULT_PAGE_WIDTH):
+def image_to_temp_pdf(image_path, temp_dir, target_width=DEFAULT_PAGE_WIDTH, rotate_landscape=False):
     temp_pdf = tempfile.NamedTemporaryFile(
         delete=False,
         suffix=".pdf",
@@ -93,7 +97,8 @@ def image_to_temp_pdf(image_path, temp_dir, target_width=DEFAULT_PAGE_WIDTH):
     )
     temp_pdf.close()
 
-    image_to_pdf_page(image_path, temp_pdf.name, target_width=target_width)
+    image_to_pdf_page(image_path, temp_pdf.name, target_width=target_width,
+                      rotate_landscape=rotate_landscape)
 
     return temp_pdf.name
 
@@ -154,20 +159,21 @@ def make_backup(base_pdf):
     return backup_path
 
 
-def normalize_to_pdf(file_path, temp_dir, target_width=DEFAULT_PAGE_WIDTH):
+def normalize_to_pdf(file_path, temp_dir, target_width=DEFAULT_PAGE_WIDTH, rotate_landscape=False):
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == ".pdf":
         return file_path, False
 
     if ext in IMAGE_EXTS:
-        converted_pdf = image_to_temp_pdf(file_path, temp_dir, target_width)
+        converted_pdf = image_to_temp_pdf(file_path, temp_dir, target_width,
+                                          rotate_landscape=rotate_landscape)
         return converted_pdf, True
 
     raise ValueError(f"Unsupported file type: {file_path}")
 
 
-def prepend_pdfs(base_pdf, insert_files):
+def prepend_pdfs(base_pdf, insert_files, rotate_landscape=False):
     temp_converted_files = []
     temp_path = None
     writer = None
@@ -188,7 +194,8 @@ def prepend_pdfs(base_pdf, insert_files):
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"Insert file not found: {file_path}")
 
-            pdf_path, is_temp = normalize_to_pdf(file_path, base_dir, target_width)
+            pdf_path, is_temp = normalize_to_pdf(file_path, base_dir, target_width,
+                                                rotate_landscape=rotate_landscape)
 
             if is_temp:
                 temp_converted_files.append(pdf_path)
